@@ -1,0 +1,132 @@
+[
+  {
+    "id": "1",
+    "title": "Q1 · Race Condition Data Structures",
+    "question": "What are two kernel data structures where race conditions are possible?",
+    "answer": "1. The kernel's process list (linked list of PCBs)\nThe kernel keeps a linked list of Process Control Blocks (PCBs) to track every process in the system. A race condition can occur if two CPU cores run kernel code that inserts or removes a PCB at the same time — for example, one core is forking a new process while another is reaping a terminated one. Both read the current head/next pointers before either writes back the updated list, so one update can be lost or the list can become corrupted (dangling pointers, a process disappearing from the list, or two processes ending up with the same PCB slot).\n\n2. The kernel memory allocator's free-list / free-frame bitmap\nThe kernel maintains a data structure (a free list or a bitmap) that records which physical memory frames are free. If two threads on different cores both call the allocator concurrently, each may read the structure, see the same frame marked 'free', and both mark it allocated — the classic read-modify-write race. The result is that the same physical frame gets handed out twice, corrupting whichever process writes to it second.",
+    "example": "Other acceptable examples: the open-file table, the scheduler's ready queue, or a shared counter such as the hits example used in Q4.",
+    "importantPoints": [
+      "The kernel's process list (linked list of PCBs) corruption leads to vanished processes.",
+      "The kernel memory allocator's free-list / free-frame bitmap concurrent access can double-assign a frame.",
+      "Other examples: open-file table, scheduler's ready queue, or shared hits counter."
+    ],
+    "category": "Process Synchronization"
+  },
+  {
+    "id": "2",
+    "title": "Q2 · Spinlock vs. Sleeping Mutex",
+    "question": "Compare Spinlocks and Sleeping Mutexes under three distinct operating system scenarios.",
+    "answer": "1. Lock held for a short duration → Spinlock is better. Putting a thread to sleep and waking it later costs two context switches, expensive relative to a short critical section. Spinning wastes a few CPU cycles but avoids that overhead entirely.\n\n2. Lock held for a long duration → Mutex (sleep) is better. If the wait is long, the CPU cycles wasted by spinning far outweigh the one-time cost of two context switches, and letting the waiting thread sleep frees the CPU core to do other useful work.\n\n3. A thread may sleep while holding the lock → Mutex is the only safe choice. A spinlock must never be held across a voluntary sleep: other cores would spin — possibly indefinitely — waiting for a lock that won't be released until the sleeping thread is rescheduled, wasting CPU and risking priority inversion or effective deadlock.",
+    "example": "Spinlock is like standing at the counter waiting for your coffee because it's ready in 10 seconds. Sleeping mutex is like sitting down with a buzzer that goes off when your order is ready in 15 minutes.",
+    "importantPoints": [
+      "Lock held for a short duration → Spinlock is better (avoids two context switches).",
+      "Lock held for a long duration → Mutex (sleep) is better (frees the CPU core).",
+      "Thread may sleep while holding the lock → Mutex is the only safe choice (prevents spinning indefinitely)."
+    ],
+    "category": "Process Synchronization"
+  },
+  {
+    "id": "3",
+    "title": "Q3 · Spinlock Upper Bound",
+    "question": "What is the upper bound for holding a spinlock in terms of context switch overhead time T?",
+    "answer": "Upper bound ≈ 2T\n\nA spinlock should be held for no longer than about 2T. Putting a waiting thread to sleep and later waking it up requires two context switches — one to switch the waiting thread out, and one to switch it back in when the lock becomes available — each costing time T. So the 'break-even point' is roughly 2T: if the critical section takes less than 2T, spinning wastes less CPU time than the two context switches a sleeping mutex would cost; if it takes longer than 2T, a sleeping mutex becomes the cheaper option.",
+    "example": "If a round-trip taxi ride to a hotel costs $50, and staying in a parking spot costs $10/hr, it is only cheaper to wait in the spot if you are staying for less than 5 hours (2T).",
+    "importantPoints": [
+      "Putting a waiting thread to sleep and waking it up requires two context switches.",
+      "Each context switch costs time T, making the total overhead 2T.",
+      "If the critical section is less than 2T, spinning is cheaper than sleeping."
+    ],
+    "category": "Process Synchronization"
+  },
+  {
+    "id": "4",
+    "title": "Q4 · Mutex vs. atomic_t",
+    "question": "For incrementing a simple integer counter 'hits', is a mutex_lock or an atomic_t variable more efficient?",
+    "answer": "The atomic-integer strategy (atomic_inc(&hits)) is more efficient.\n\natomic_inc is implemented directly with a hardware-supported atomic instruction (e.g. a CPU compare-and-swap or fetch-and-add), executed in a single uninterruptible step with no separate acquire/release calls, no possibility of the calling thread blocking, and no extra lock data structure to maintain.\n\nThe mutex-based version has to acquire a lock object, potentially block (context-switch) if another thread already holds it, then release it — overhead that exists purely to protect a single-word update.\n\nSince hits++ is nothing more than a simple read-modify-write on one integer, it fits exactly the case atomic operations are designed for, so the mutex's extra machinery buys no additional safety, only additional cost.",
+    "example": "Using a mutex to increment a counter is like hiring an armed security guard to lock and unlock a single drawer just to grab a pencil; an atomic instruction is like a mechanical pencil dispenser that guarantees one pencil is taken safely in one click.",
+    "importantPoints": [
+      "Atomic operations are supported directly in hardware with zero context-switch risk.",
+      "Mutexes introduce significant software bookkeeping and queue overhead.",
+      "For single-word variables, atomic instructions are preferred over mutex locks."
+    ],
+    "category": "Process Synchronization"
+  },
+  {
+    "id": "5",
+    "title": "Q5 · Figure 6.20 Race Fix",
+    "question": "Identify the race condition(s) in Figure 6.20 (allocating/releasing processes) and write the corrected synchronized solution.",
+    "answer": "a. Identify the race condition(s):\nnumber_of_processes is a shared variable updated with ++ and --, which are not atomic operations — each compiles to a read, a modify, and a write-back. If two processes call these routines concurrently (one allocating, one releasing, or two allocating at once), both can read the same old value before either writes back the new one, so one of the two updates is lost and the counter ends up incorrect.\n\nA second, related race exists in the allocation routine itself: two threads can both evaluate the check number_of_processes == MAX_PROCESSES as false at the same time (because neither has incremented yet), and both proceed to allocate a process — so the system can end up creating more processes than MAX_PROCESSES allows, even though each individual thread's check looked safe.\n\nb. Where to place the locking:\nThe acquire() must be taken before the if-check and only released after the increment (or after the decrement in the release routine), so the check-and-update happens as one atomic unit:\n\n// allocate\nmutex.acquire();\nif (number_of_processes == MAX_PROCESSES) {\n    mutex.release();\n    return -1;\n}\n++number_of_processes;\nmutex.release();\n\n// release\nmutex.acquire();\n--number_of_processes;\nmutex.release();\n\nc. Would atomic_t number_of_processes be enough?\nOnly partially. Replacing the plain int with an atomic_t would make the increment and decrement themselves atomic, so the counter could never lose an update from ++/-- running concurrently. However, it would NOT fix the compound 'check-then-increment' race described above, because comparing number_of_processes to MAX_PROCESSES and then incrementing it are two separate operations — an atomic type only guarantees atomicity for a single operation, not for a sequence of them. Two threads could still both pass the == MAX_PROCESSES check before either increments, and the count could still exceed MAX_PROCESSES. A mutex protecting the whole check-and-increment sequence is still required.",
+    "example": "Like a theater with one seat left: two buyers check the seat, see '1 free', both press buy at the exact same second, and the theater ends up double-booking.",
+    "importantPoints": [
+      "Read-Modify-Write instructions are non-atomic and cause data inconsistency.",
+      "Compound check-then-act operations are prone to race conditions even with atomic variables.",
+      "Mutexes ensure the entire check-and-allocate sequence runs atomically."
+    ],
+    "category": "Process Synchronization"
+  },
+  {
+    "id": "6",
+    "title": "Q6 · MFT First-Fit Trace",
+    "question": "For MFT with 1000 KB and four fixed partitions (P1=100, P2=200, P3=300, P4=400 KB), trace first-fit allocation for jobs J1=250, J2=90, J3=350, J4=120, J5=180 KB. Detail internal fragmentation and the blocked job.",
+    "answer": "a. Allocation trace:\n- J1 (250 KB) checks P1(100)✗ → P2(200)✗ → P3(300)✓. Assigned to P3.\n- J2 (90 KB) checks P1(100)✓. Assigned to P1.\n- J3 (350 KB) checks P1 busy → P2(200)✗ → P3 busy → P4(400)✓. Assigned to P4.\n- J4 (120 KB) checks P1 busy → P2(200)✓. Assigned to P2.\n- J5 (180 KB) checks P1 busy, P2 busy, P3 busy, P4 busy. Waits in queue.\n\nb. Internal fragmentation:\n- J1 in P3 (300 KB): 300 - 250 = 50 KB\n- J2 in P1 (100 KB): 100 - 90 = 10 KB\n- J3 in P4 (400 KB): 400 - 350 = 50 KB\n- J4 in P2 (200 KB): 200 - 120 = 80 KB\nTotal internal fragmentation = 190 KB.\n\nc. The job that can never be placed:\nEvery individual job (max 350 KB) is smaller than the largest partition (P4 = 400 KB), so no job is too big to physically fit. The problem is structural: MFT fixes the number of partitions — here, exactly 4 — so at most 4 jobs can ever be resident at once. Once J1–J4 occupy P3, P1, P4 and P2 respectively, all four partitions are permanently full, so J5 (180 KB) is left waiting forever even though it would easily fit inside P2, P3, or P4 if any became free.\n\nWhat allows J5 to run: either increase the number of fixed partitions so the degree of multiprogramming can reach 5, or, more fundamentally, abandon fixed partitioning altogether and use variable partitioning (MVT), which sizes each partition exactly to the job and frees it when the job finishes.",
+    "example": "Like a restaurant with exactly four booths of different sizes. Once all four booths are sat (even if a single person sits at a 6-seater booth), a new party of 2 must wait outside because there are no tables left.",
+    "importantPoints": [
+      "First-fit assigns jobs to the first free partition that fits them.",
+      "Internal fragmentation is wasted space inside an allocated partition.",
+      "MFT limits the degree of multiprogramming to the fixed number of physical partitions."
+    ],
+    "category": "Memory Management"
+  },
+  {
+    "id": "7",
+    "title": "Q7 · MVT Allocation Trace",
+    "question": "Trace MVT first-fit for 640 KB with: P1 requests 250, P2 requests 150, P3 requests 100, P1 completes, P4 requests 200, P2 completes. Detail holes and compaction.",
+    "answer": "a. Memory state after each event:\n- 0. Initial: [ Hole 640 ]\n- 1. P1 requests 250 KB: [ P1:250 ][ Hole 390 ]\n- 2. P2 requests 150 KB: [ P1:250 ][ P2:150 ][ Hole 240 ]\n- 3. P3 requests 100 KB: [ P1:250 ][ P2:150 ][ P3:100 ][ Hole 140 ]\n- 4. P1 completes (releases 250): [ Hole 250 ][ P2:150 ][ P3:100 ][ Hole 140 ]\n- 5. P4 requests 200 KB (fits in the 250 hole): [ P4:200 ][ Hole 50 ][ P2:150 ][ P3:100 ][ Hole 140 ]\n- 6. P2 completes (merges with adjoining 50 hole): [ P4:200 ][ Hole 200 ][ P3:100 ][ Hole 140 ]\n\nb. Holes and external fragmentation after the last event:\nFinal layout: [ P4:200 ][ Hole 200 ][ P3:100 ][ Hole 140 ]. There are 2 separate holes (200 KB and 140 KB), giving a total external fragmentation of 200 + 140 = 340 KB.\n\nA pending 300 KB request could NOT be satisfied, even though 340 KB of free memory exists in total — no single hole is large enough (the largest is only 200 KB). This is exactly what external fragmentation means: free space exists but isn't contiguous.\n\nc. Compaction:\nTo merge all free space into one hole, the allocated blocks must be pushed together. P4 (200 KB) is already at the start of memory, so it doesn't need to move. Only P3 (100 KB) needs to shift left to close the 200 KB gap, giving [ P4:200 ][ P3:100 ][ Hole 340 ].\nMinimum data moved = 100 KB.\n\nMain operational drawback of compaction: it is expensive and disruptive — the CPU must spend time copying every byte of every process that is relocated, the relocated processes typically have to be paused/suspended while their memory moves, and every relocation register / base pointer must be updated afterward. This overhead can noticeably steal CPU time away from real work and is especially unattractive on systems with real-time or low-latency requirements.",
+    "example": "Like parking cars on a street: even if there are ten 3-foot gaps between cars (30 feet total), you can't park a single 15-foot bus because the spaces aren't connected.",
+    "importantPoints": [
+      "Adjoining free memory slots must be merged (coalesced) when released.",
+      "External fragmentation prevents allocations even if total free space is sufficient.",
+      "Compaction consolidates all free spaces but introduces massive CPU copy overhead and process pauses."
+    ],
+    "category": "Memory Management"
+  },
+  {
+    "id": "8",
+    "title": "Q8 · MFT vs. MVT Workload",
+    "question": "Compare MFT (five equal 160 KB partitions) and MVT (best-fit) on an 800 KB server with jobs 120, 350, 90, 200, 400, 60 KB in arrival order.",
+    "answer": "a. MFT — five equal fixed partitions of 160 KB each:\n- 120 KB: Fits (Partition 1)\n- 350 KB: No — larger than any partition (exceeds 160 KB). Blocked.\n- 90 KB: Fits (Partition 2)\n- 200 KB: No — larger than any partition. Blocked.\n- 400 KB: No — larger than any partition. Blocked.\n- 60 KB: Fits (Partition 3)\nOnly the 120, 90 and 60 KB jobs can ever be loaded. Maximum degree of multiprogramming = 3. The 350, 200 and 400 KB jobs can never be loaded, no matter how long they wait, because each exceeds the fixed 160 KB partition size.\n\nb. MVT — best-fit, no compaction:\n- 120 KB: Allocated from 800 KB (only hole) -> [ 120 KB Job ][ Hole 680 KB ]\n- 350 KB: Allocated from 680 KB -> [ 120 KB Job ][ 350 KB Job ][ Hole 330 KB ]\n- 90 KB: Allocated from 330 KB -> [ 120 KB Job ][ 350 KB Job ][ 90 KB Job ][ Hole 240 KB ]\n- 200 KB: Allocated from 240 KB -> [ 120 KB Job ][ 350 KB Job ][ 90 KB Job ][ 200 KB Job ][ Hole 40 KB ]\n- 400 KB: 40 KB — too small. Rejected / must wait.\n- 60 KB: 40 KB — too small. Rejected / must wait.\n4 jobs (120, 350, 90, 200 KB) can be resident at the same time.\nMemory utilization = 760 / 800 = 95%.\n\nc. Trade-off between MFT and MVT for this workload:\n- Degree of multiprogramming: MFT tops out at 3 resident jobs (fixed 160 KB partitions permanently exclude anything larger), while MVT achieves 4 resident jobs because each partition is sized exactly to the job requesting it.\n- Memory utilization: MVT reaches 95% here versus MFT, which wastes memory to internal fragmentation inside every partition and additionally leaves entire jobs unable to run at all.\n- Operating-system overhead: MFT is simple and predictable — fixed partitions, quick lookup, no external fragmentation. MVT needs more bookkeeping (dynamic free-list, best-fit search) and is exposed to external fragmentation, which can eventually require costly compaction.",
+    "example": "MFT is like a hotel with strictly single rooms: couples and families are rejected at the door. MVT is like a hotel with modular sliding walls that adjusts room sizes on the fly.",
+    "importantPoints": [
+      "MFT locks out any process larger than the single partition size, regardless of total memory.",
+      "MVT sizes partitions dynamically, maximizing utilization and concurrent resident processes.",
+      "MVT requires more complex OS book-keeping algorithms."
+    ],
+    "category": "Memory Management"
+  },
+  {
+    "id": "9",
+    "title": "Q9 · Best-Fit vs. Worst-Fit",
+    "question": "Simulate Best-fit and Worst-fit for holes: H1=20, H2=15, H3=18, H4=8, H5=6 KB with requests R1=12, R2=10, R3=9, R4=15 KB. Contrast their behavior.",
+    "answer": "a. Best-fit (smallest hole that still fits):\n- R1 = 12: Chosen hole H2 (15) -> Leftover holes (H1...H5): 20, 3, 18, 8, 6\n- R2 = 10: Chosen hole H3 (18) -> Leftover holes: 20, 3, 8, 8, 6\n- R3 = 9: Chosen hole H1 (20) -> Leftover holes: 11, 3, 8, 8, 6\n- R4 = 15: none ≥ 15 — cannot be satisfied. Blocked.\n\nb. Worst-fit (largest hole every time):\n- R1 = 12: Chosen hole H1 = 20 -> Leftover holes (H1...H5): 8, 15, 18, 8, 6\n- R2 = 10: Chosen hole H3 = 18 -> Leftover holes: 8, 15, 8, 8, 6\n- R3 = 9: Chosen hole H2 = 15 -> Leftover holes: 8, 6, 8, 8, 6\n- R4 = 15: none ≥ 15 — cannot be satisfied. Blocked.\n\nc. External fragmentation and unsatisfied requests:\nBoth strategies leave exactly 36 KB free in total, yet neither can satisfy R4 (15 KB) — no single leftover hole reaches 15 KB in either case, a direct illustration of external fragmentation.\n\nd. When worst-fit can outperform best-fit long-term:\nBest-fit's habit of choosing the tightest hole at every step tends to leave many tiny, unusable slivers behind (here, a useless 3 KB fragment). Worst-fit instead always carves from the largest hole, tending to leave one larger leftover hole rather than several small unusable ones. If future requests are moderate in size, that larger hole is more likely to still be usable — so worst-fit can beat best-fit over many allocations, despite looking worse at each individual step.",
+    "example": "Best-fit is like squeezing boxes into the tightest spaces, leaving tiny cracks you can never use. Worst-fit is like cutting from the biggest roll of fabric, leaving a large piece that can still make another shirt.",
+    "importantPoints": [
+      "Best-fit minimizes leftover space per allocation but causes tiny 'slivers' of external fragmentation.",
+      "Worst-fit keeps leftover spaces as large as possible, preserving usability for future requests.",
+      "Both can still suffer from external fragmentation under critical workloads."
+    ],
+    "category": "Memory Management"
+  },
+  {
+    "id": "10",
+    "title": "Q10 · Fragmentation Puzzle",
+    "question": "Why can MVT reject processes even when 35% of total memory is free? Contrast two distinct solutions.",
+    "answer": "a. The phenomenon:\nThis is external fragmentation. Under MVT, free memory becomes scattered across many small, non-adjacent holes rather than existing as one contiguous block. A high percentage of free memory says nothing about how that free memory is distributed — it could be one large usable hole, or dozens of small holes none of which is individually big enough for the incoming request.\n\nb. Two distinct solutions:\n1. Stay contiguous → Compaction: periodically shift all allocated processes together (requires relocatable code) so every free hole merges into one large contiguous block.\n2. Go non-contiguous → Paging: divide physical memory into fixed-size frames and let a process's pages scatter across any available frames. This removes external fragmentation almost entirely, leaving at most internal fragmentation on the last partial page.\n\nc. Operational cost of the compaction solution:\nCompaction costs real CPU time proportional to the amount of memory moved, requires pausing affected processes during their move, and needs every relocation register updated afterward. This becomes unacceptable under high memory churn (frequent process creation/termination), very large memory sizes or large-footprint processes, and real-time or latency-sensitive systems where pausing for compaction can violate timing guarantees.",
+    "example": "Compaction is like moving everyone in a cinema to different seats to make a row of 5 empty seats together. Paging is like letting a group of 5 friends sit in any 5 separate seats scattered across the theater.",
+    "importantPoints": [
+      "External fragmentation is the primary flaw of contiguous dynamic memory allocation (MVT).",
+      "Compaction merges holes but creates heavy memory-copy CPU bottlenecks and pauses processes.",
+      "Paging completely eliminates external fragmentation by enabling non-contiguous physical allocation."
+    ],
+    "category": "Memory Management"
+  }
+]

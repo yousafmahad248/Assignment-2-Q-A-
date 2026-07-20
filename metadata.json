@@ -1,0 +1,6 @@
+{
+  "name": "CPU Scheduling Simulator & Viva Guide",
+  "description": "An interactive full-stack learning platform and simulator for CPU scheduling algorithms and memory management strategies (MFT, MVT, Paging, and Compaction).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

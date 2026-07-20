@@ -1,0 +1,151 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Overriding standard slate and gray palette with GitHub/Elegant Dark palette */
+  --color-gray-50: #ffffff;
+  --color-gray-100: #f0f6fc;
+  --color-gray-200: #c9d1d9;
+  --color-gray-300: #b1bac4;
+  --color-gray-400: #8b949e;
+  --color-gray-500: #6e7681;
+  --color-gray-600: #484f58;
+  --color-gray-700: #30363d;
+  --color-gray-800: #21262d;
+  --color-gray-900: #161b22;
+  --color-gray-950: #0d1117;
+
+  /* Indigo overrides with beautiful GitHub active blue values */
+  --color-indigo-50: #f0f6fc;
+  --color-indigo-100: #1f6feb15;
+  --color-indigo-200: #388bfd44;
+  --color-indigo-300: #58a6ffdd;
+  --color-indigo-400: #58a6ff;
+  --color-indigo-500: #58a6ff;
+  --color-indigo-600: #1f6feb;
+  --color-indigo-700: #1f6feb;
+  --color-indigo-800: #1f6feb;
+  --color-indigo-900: #161b22;
+  --color-indigo-950: #1f6feb26;
+
+  /* Emerald overrides with GitHub Green */
+  --color-emerald-400: #56d364;
+  --color-emerald-500: #3fb950;
+  --color-emerald-600: #238636;
+  --color-emerald-700: #238636;
+  --color-emerald-800: #238636;
+  --color-emerald-950: #23863622;
+
+  /* Rose overrides with GitHub Red */
+  --color-rose-400: #ff7b72;
+  --color-rose-500: #f85149;
+  --color-rose-600: #da3633;
+  --color-rose-950: #da363322;
+  
+  /* Amber/Yellow overrides with GitHub Yellow */
+  --color-amber-400: #f2cc60;
+  --color-amber-500: #d29922;
+  --color-amber-600: #9e6a03;
+  --color-amber-950: #d2992222;
+}
+
+@layer base {
+  body {
+    background-color: #0d1117;
+    color: #c9d1d9;
+  }
+}
+
+/* Elegant Dark CSS Theme Overrides */
+.bg-gray-950 {
+  background-color: #0d1117 !important;
+}
+
+.bg-gray-900 {
+  background-color: #161b22 !important;
+}
+
+.bg-gray-800, 
+.bg-gray-950\/20, 
+.bg-gray-950\/40, 
+.bg-gray-950\/60, 
+.bg-gray-950\/80 {
+  background-color: #21262d !important;
+}
+
+/* Ensure borders match #30363d precisely */
+.border,
+.border-gray-900,
+.border-gray-800,
+.border-gray-700 {
+  border-color: #30363d !important;
+}
+
+/* Subpanels header or active item uses #1c2128 */
+.bg-gray-900\/20,
+.bg-gray-900\/30,
+.bg-gray-900\/40,
+.bg-gray-900\/50,
+.bg-[#1c2128] {
+  background-color: #1c2128 !important;
+}
+
+/* Text colors */
+.text-gray-400, 
+.text-[#8b949e] {
+  color: #8b949e !important;
+}
+
+.text-gray-200, 
+.text-[#c9d1d9] {
+  color: #c9d1d9 !important;
+}
+
+.text-white {
+  color: #ffffff !important;
+}
+
+@layer utilities {
+  @media print {
+    .no-print, header, aside, footer, button, .relative.max-w-sm {
+      display: none !important;
+    }
+    body, html {
+      background-color: #ffffff !important;
+      color: #000000 !important;
+    }
+    main {
+      padding: 0 !important;
+      margin: 0 !important;
+      background-color: #ffffff !important;
+    }
+    #print-area {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100% !important;
+      padding: 10px !important;
+      background-color: #ffffff !important;
+      color: #000000 !important;
+    }
+    .grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+    .border, .border-gray-900, .border-gray-800 {
+      border-color: #e5e7eb !important;
+    }
+    .text-gray-400, .text-gray-500, .text-gray-600 {
+      color: #374151 !important;
+    }
+    .text-white, .text-gray-100, .text-gray-200 {
+      color: #000000 !important;
+    }
+    .bg-gray-950, .bg-gray-900, .bg-gray-950\/40, .bg-gray-950\/20, .bg-gray-900\/30 {
+      background-color: #f9fafb !important;
+    }
+  }
+}
+

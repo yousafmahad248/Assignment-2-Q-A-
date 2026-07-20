@@ -1,0 +1,35 @@
+[
+  {
+    "id": "fcfs",
+    "algorithm": "First-Come, First-Served (FCFS)",
+    "introduction": "First-Come First-Served (FCFS) is the simplest and most intuitive CPU scheduling algorithm. As the name suggests, the process that requests the CPU first gets allocated the CPU first. It is a non-preemptive algorithm managed with a FIFO queue.",
+    "working": "When a process enters the ready queue, its Process Control Block (PCB) is linked onto the tail of the queue. The CPU is then allocated to the process at the head of the queue. Once running, it holds the CPU until it terminates or blocks for I/O.",
+    "advantages": "1. Extremely simple to implement and understand.\n2. Fair in terms of arrival order (no process is bypassed).\n3. No complex logic or decision-making overhead.",
+    "disadvantages": "1. Convoy Effect: Short processes can get blocked waiting for a single long process, causing extremely high average waiting times.\n2. Non-preemptive nature makes it unsuitable for interactive, real-time, or time-sharing systems.",
+    "timeComplexity": "Average Waiting Time: O(N) due to sequential dependency. Sorting processes by arrival time takes O(N log N).",
+    "useCases": "Used in batch operating systems where process response time is not critical, or as a fallback/sub-scheduler inside more complex algorithms.",
+    "realLifeExample": "A single-window ticket counter or a queue at a grocery checkout. The person who arrives first gets served first, regardless of how long their checkout takes."
+  },
+  {
+    "id": "sjf",
+    "algorithm": "Shortest Job First (SJF)",
+    "introduction": "Shortest Job First (SJF) schedules the process with the shortest CPU burst time next. It can be implemented as either Non-Preemptive or Preemptive (Shortest Remaining Time First - SRTF).",
+    "working": "The scheduler inspects the ready queue and selects the process that has the smallest predicted CPU burst. In Preemptive SJF (SRTF), if a newly arrived process has a shorter remaining burst time than the currently executing process, the CPU is preempted and allocated to the new process.",
+    "advantages": "1. Mathematically optimal: It guarantees the lowest possible average waiting time for a given set of processes.\n2. High throughput for short processes.",
+    "disadvantages": "1. Starvation: Long processes can wait indefinitely if short processes are continually added to the queue.\n2. Unpredictability: Knowing or predicting the exact burst time of an incoming process in advance is highly difficult.",
+    "timeComplexity": "Selecting the shortest job takes O(log N) with a heap/priority queue. Overall simulation takes O(N log N).",
+    "useCases": "Long-term scheduling in batch systems where execution times are estimated or declared in advance by users.",
+    "realLifeExample": "An email server sending out emails. It sends the smallest emails (text-only) first because they finish instantly, reserving large attachments for later to keep the average delivery speed fast."
+  },
+  {
+    "id": "priority",
+    "algorithm": "Priority Scheduling",
+    "introduction": "Priority Scheduling associates a priority value with each process, and the CPU is allocated to the process with the highest priority. It supports both Preemptive and Non-Preemptive execution modes.",
+    "working": "Each process is assigned an integer priority (typically lower numbers indicate higher priority, e.g., Priority 1 > Priority 5). The scheduler always picks the ready process with the highest priority. In Preemptive Priority, a newly arrived process with a higher priority immediately preempts a lower-priority running process.",
+    "advantages": "1. Allows high-importance or real-time system tasks to run immediately.\n2. Highly flexible and supports user-defined task urgency.",
+    "disadvantages": "1. Starvation: Low-priority processes may never execute if high-priority processes keep arriving.\n2. Indefinite blocking can lead to system instability if critical low-priority tasks are starved.",
+    "timeComplexity": "O(N log N) to maintain a priority queue of processes.",
+    "useCases": "Real-time operating systems (RTOS) or systems where background system tasks must always take precedence over user applications.",
+    "realLifeExample": "An emergency room in a hospital. Patients are treated based on the severity of their condition (priority), not their order of arrival."
+  }
+]
