@@ -11,7 +11,9 @@ import {
   Settings, 
   Menu, 
   X,
-  Search
+  Search,
+  Sun,
+  Moon
 } from "lucide-react";
 
 interface SidebarProps {
@@ -22,6 +24,8 @@ interface SidebarProps {
   onSearchClick: () => void;
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
+  isDarkMode?: boolean;
+  toggleTheme?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -32,6 +36,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSearchClick,
   sidebarOpen,
   setSidebarOpen,
+  isDarkMode = true,
+  toggleTheme,
 }) => {
   const menuItems = [
     { id: "home", label: "Home", icon: Home },
@@ -61,6 +67,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </span>
         </div>
         <div className="flex items-center gap-2">
+          {toggleTheme && (
+            <button
+              onClick={toggleTheme}
+              className="p-2 text-gray-400 hover:text-gray-100 transition-colors"
+              title="Toggle theme"
+            >
+              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+          )}
           <button
             onClick={onSearchClick}
             className="p-2 text-gray-400 hover:text-gray-100 transition-colors"
