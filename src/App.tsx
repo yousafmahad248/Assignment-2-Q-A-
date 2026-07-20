@@ -162,13 +162,18 @@ function AppContent() {
         onSearchClick={() => setSearchOverlayOpen(true)}
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
+        isDarkMode={isDarkMode}
+        toggleTheme={() => {
+          setIsDarkMode(!isDarkMode);
+          showToast(`Switched to ${!isDarkMode ? "Cosmic VS-Code Dark" : "Clean Light Mode"}`, "info");
+        }}
       />
 
       {/* Main Viewport panel */}
       <main className="flex-1 flex flex-col min-w-0">
         
         {/* Top Control Header bar (Desktop & Mobile view settings) */}
-        <div className={`px-6 py-4 flex items-center justify-between border-b ${
+        <div className={`hidden lg:flex px-6 py-4 items-center justify-between border-b ${
           isDarkMode ? "border-gray-900 bg-gray-950/80" : "border-gray-200 bg-white"
         } sticky top-0 z-30 backdrop-blur-md`}>
           <div className="flex items-center gap-2">
